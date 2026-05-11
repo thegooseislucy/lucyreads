@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import BookPanel from './components/BookPanel.jsx'
 import './App.css'
 
 const BOOKS = [
@@ -13,6 +14,11 @@ const BOOKS = [
     text: '#ddd6fe',
     heat: 94,
     sentiment: 'Beloved',
+    brief: "A 30-year creative partnership between two game designers — about grief, authorship, and what we make for each other.",
+    controversy: "Is Sam and Sadie's relationship romantic love or something that exceeds category? Readers are still fighting.",
+    bookClub: ["What does the book say about creative ownership?", "Is their bond love — and does the answer matter?", "How does Ichigo function as a metaphor?"],
+    chapters: [{ n: 1, t: "Commence", hook: "The hospital reunification — what does it mean to make something with someone you've hurt?" }, { n: 2, t: "Sadie Emerges", hook: "Her professor relationship raises questions the book never resolves. What did she gain?" }],
+    prompts: ["Catch me up to chapter 4", "What are Sam and Sadie actually fighting about?", "What's the book's argument about authorship?"],
     w: 29,
     h: 186,
   },
@@ -27,6 +33,11 @@ const BOOKS = [
     text: '#e0f2f1',
     heat: 88,
     sentiment: 'Divisive',
+    brief: "Two grieving brothers navigate love and loss after their father dies. Rooney's most formally ambitious novel.",
+    controversy: "The punctuation experiments either reveal interiority brilliantly or are an affectation. People feel strongly.",
+    bookClub: ["How do the brothers' relationships reflect their approaches to grief?", "Is the Sylvia/Naomi dynamic handled fairly?", "Does Rooney's style clarify or obscure emotion?"],
+    chapters: [{ n: 1, t: "Ivan", hook: "Chess as control — what does Ivan's need to win tell us before we know anything else?" }, { n: 2, t: "Peter", hook: "Peter's interior monologue is the most stylistically ambitious section. What is Rooney doing?" }],
+    prompts: ["What is Rooney doing with the punctuation?", "Explain the ending", "What's the book club likely arguing about?"],
     w: 25,
     h: 174,
   },
@@ -41,6 +52,11 @@ const BOOKS = [
     text: '#fecaca',
     heat: 97,
     sentiment: 'Polarizing',
+    brief: "Violet enters a war college for dragon riders despite her fragile body. Enemies become lovers. Dragons choose or kill.",
+    controversy: "Fantasy with romance or romance with fantasy scaffolding? The distinction matters more than it should.",
+    bookClub: ["What does Violet's vulnerability allow the story to do?", "Is Xaden's arc earned or convenient?", "Did the ending stick the landing?"],
+    chapters: [{ n: 1, t: "The Parapet", hook: "Every crossing is a sorting. What does Violet's crossing tell us immediately?" }, { n: 2, t: "First Year", hook: "The violence is casual and immediate. What tonal contract is Yarros establishing?" }],
+    prompts: ["Is this fantasy or romance?", "Catch me up before my book club", "What's the Xaden controversy?"],
     w: 33,
     h: 194,
   },
@@ -55,6 +71,11 @@ const BOOKS = [
     text: '#bfdbfe',
     heat: 91,
     sentiment: 'Essential',
+    brief: "Dark academia in 1830s Oxford where translation is literal magic. A colonized student must choose a side.",
+    controversy: "Some felt the political argument overwhelmed character. Others say it's a polemic by design — and that's the point.",
+    bookClub: ["When does working inside a corrupt system become complicity?", "Which character's choice felt most honest?", "What does the ending argue about reform vs. revolution?"],
+    chapters: [{ n: 1, t: "Canton", hook: "Robin's rescue is framed as generosity — but what is Oxford actually taking?" }, { n: 2, t: "Oxford", hook: "The wonder of Babel coexists with its violence. How long does Kuang let you enjoy it?" }],
+    prompts: ["What is the silver system actually doing?", "Catch me up to chapter 5", "What does the ending argue?"],
     w: 35,
     h: 200,
   },
@@ -69,6 +90,11 @@ const BOOKS = [
     text: '#fde68a',
     heat: 89,
     sentiment: 'Devastating',
+    brief: "David Copperfield retold in Appalachian Virginia during the opioid crisis. A red-haired boy who will not stop trying to survive.",
+    controversy: "Pulitzer winner. The only debate is whether Dickens comparisons are fair to either writer.",
+    bookClub: ["How does Demon's voice function as unreliable narrator?", "What does the foster system in this book argue?", "How does Kingsolver update Dickens's social critique?"],
+    chapters: [{ n: 1, t: "Born", hook: "Demon narrates his own birth with dry humor. What does that voice signal about how he's learned to cope?" }, { n: 2, t: "Placement", hook: "The first foster home. Kingsolver is methodical about the machinery of the system — why?" }],
+    prompts: ["What is this book actually about?", "Who is Demon's Dickens equivalent?", "What's the controversy around the ending?"],
     w: 31,
     h: 190,
   },
@@ -83,6 +109,11 @@ const BOOKS = [
     text: '#fed7aa',
     heat: 85,
     sentiment: 'Sharp',
+    brief: "A white author steals her Chinese-American friend's manuscript after she dies. A satire of publishing, race, and who gets to tell whose story.",
+    controversy: "Is June Hayward a villain or a mirror? Some readers sympathize in ways the book may not endorse.",
+    bookClub: ["At what point did you turn on June — or did you?", "What is the book saying about who publishing serves?", "Does the ending feel like justice?"],
+    chapters: [{ n: 1, t: "The Party", hook: "The death is casual and immediate. Why does Kuang refuse to make it dramatic?" }, { n: 2, t: "The Manuscript", hook: "June's rationalizations are fluent enough to be almost convincing. What does that say about the reader?" }],
+    prompts: ["Is June supposed to be sympathetic?", "What is this saying about publishing?", "Catch me up — my book club is tonight"],
     w: 27,
     h: 177,
   },
@@ -97,6 +128,11 @@ const BOOKS = [
     text: '#dbeafe',
     heat: 82,
     sentiment: 'Adored',
+    brief: "A blind French girl and a German boy with a gift for radios converge during the siege of Saint-Malo in WWII.",
+    controversy: "The Netflix adaptation reignited debate: is the novel's beauty sentimentality or genuine transcendence?",
+    bookClub: ["Is Werner's arc redemption or tragedy?", "What is the Sea of Flames doing — symbol or plot device?", "Did the adaptation change how you read it?"],
+    chapters: [{ n: 1, t: "August 1944", hook: "Doerr opens at the end. Why does this make inevitability feel hopeful rather than crushing?" }, { n: 2, t: "1934", hook: "Marie-Laure's world is built through touch. How does Doerr make you see through her?" }],
+    prompts: ["Explain the structure to me", "What's the controversy around the ending?", "Is Werner a hero or a coward?"],
     w: 29,
     h: 187,
   },
@@ -111,6 +147,11 @@ const BOOKS = [
     text: '#ccfbf1',
     heat: 86,
     sentiment: 'Sweeping',
+    brief: "Three generations of a South Indian family bound by a condition — one member per generation drowns. A century of India at household scale.",
+    controversy: "Some found the scope too vast for intimacy. Others say time itself is the subject — and the scope is the argument.",
+    bookClub: ["What does the covenant represent across generations?", "How does the medical thread function as metaphor?", "What does the book argue about inherited trauma?"],
+    chapters: [{ n: 1, t: "1900", hook: "A 12-year-old married to a stranger. The first line is about water. What does Verghese establish in those first pages?" }, { n: 2, t: "Digby", hook: "The Scottish doctor arrives. How does his outsider gaze change what we're seeing?" }],
+    prompts: ["What is the covenant actually?", "Catch me up to chapter 6", "What's the book's argument about family?"],
     w: 33,
     h: 192,
   },
@@ -118,12 +159,13 @@ const BOOKS = [
 
 const CATEGORIES = ['trending', 'fiction', 'non-fiction', 'book club', 'controversy']
 
-function Book({ book, isSelected, onSelect }) {
+function Book({ book, isSelected, onSelect, bookRef }) {
   const [hovered, setHovered] = useState(false)
   const active = hovered || isSelected
 
   return (
     <div
+      ref={bookRef}
       onClick={() => onSelect(book)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -181,10 +223,43 @@ function Book({ book, isSelected, onSelect }) {
 function App() {
   const [selectedBook, setSelectedBook] = useState(null)
   const [activeCategory, setActiveCategory] = useState('trending')
+  const [anchorX, setAnchorX] = useState(null)
+  const bookRefs = useRef({})
+  const shelfScrollRef = useRef(null)
 
   const handleSelect = useCallback((book) => {
     setSelectedBook(prev => prev?.id === book.id ? null : book)
   }, [])
+
+  const updateAnchorX = useCallback(() => {
+    if (!selectedBook || !shelfScrollRef.current) {
+      setAnchorX(null)
+      return
+    }
+
+    const selectedRef = bookRefs.current[selectedBook.id]
+    if (!selectedRef) {
+      setAnchorX(null)
+      return
+    }
+
+    setAnchorX(selectedRef.offsetLeft + selectedRef.offsetWidth / 2 - shelfScrollRef.current.scrollLeft)
+  }, [selectedBook])
+
+  useEffect(() => {
+    updateAnchorX()
+
+    const shelfScroll = shelfScrollRef.current
+    if (!shelfScroll) return undefined
+
+    shelfScroll.addEventListener('scroll', updateAnchorX)
+    window.addEventListener('resize', updateAnchorX)
+
+    return () => {
+      shelfScroll.removeEventListener('scroll', updateAnchorX)
+      window.removeEventListener('resize', updateAnchorX)
+    }
+  }, [updateAnchorX])
 
   return (
     <div style={{ minHeight: '100vh', padding: '0 0 60px', maxWidth: 900, margin: '0 auto' }}>
@@ -264,16 +339,41 @@ function App() {
         </div>
 
         <div style={{ position: 'relative', padding: '0 4px' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, paddingTop: 28 }}>
-            {BOOKS.map(book => (
-              <Book
-                key={book.id}
-                book={book}
-                isSelected={selectedBook?.id === book.id}
-                onSelect={handleSelect}
-              />
-            ))}
+          <div
+            ref={shelfScrollRef}
+            className="shelf-scroll"
+            style={{ overflowX: 'auto', paddingBottom: 0 }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, paddingTop: 28, minWidth: 'max-content' }}>
+              {BOOKS.map(book => (
+                <Book
+                  key={book.id}
+                  book={book}
+                  isSelected={selectedBook?.id === book.id}
+                  onSelect={handleSelect}
+                  bookRef={(element) => {
+                    bookRefs.current[book.id] = element
+                  }}
+                />
+              ))}
+            </div>
           </div>
+
+          {selectedBook && anchorX !== null && (
+            <div
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                left: anchorX,
+                width: 1,
+                height: 20,
+                background: selectedBook.band,
+                boxShadow: `0 0 6px ${selectedBook.band}`,
+                transition: 'left 0.2s cubic-bezier(0.2,0,0,1)',
+                pointerEvents: 'none',
+              }}
+            />
+          )}
 
           {/* shelf plank */}
           <div style={{
@@ -287,7 +387,9 @@ function App() {
           </div>
         </div>
 
-        {!selectedBook && (
+        {selectedBook ? (
+          <BookPanel book={selectedBook} onClose={() => setSelectedBook(null)} />
+        ) : (
           <div style={{
             textAlign: 'center', padding: '24px 0',
             fontSize: 8, color: 'var(--text-muted)', letterSpacing: '0.18em',

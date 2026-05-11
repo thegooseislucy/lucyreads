@@ -38,3 +38,12 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+.shelf-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.shelf-scroll {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
