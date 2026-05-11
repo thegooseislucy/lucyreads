@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/jetbrains-mono": "^5.2.8",
+    "@fontsource/playfair-display": "^5.2.8",
     "react": "^19.2.5",
     "react-dom": "^19.2.5"
   },
