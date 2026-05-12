@@ -1,0 +1,10 @@
+{
+  "github.copilot.enable": {
+    ".env": false,
+    ".env.local": false
+  },
+  "files.exclude": {
+    "**/.env": true,
+    "**/.env.local": true
+  }
+}
