@@ -22,7 +22,7 @@ function buildPrompt(book, question) {
 
 function AIPicker({ book, question, onClose }) {
   const [copied, setCopied] = useState(false)
-  const toastTimer = useRef(null)
+  const [selectedOption, setSelectedOption] = useState(null)
   const resetTimer = useRef(null)
   const prompt = buildPrompt(book, question)
 
@@ -37,24 +37,23 @@ function AIPicker({ book, question, onClose }) {
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
-      clearTimeout(toastTimer.current)
       clearTimeout(resetTimer.current)
     }
   }, [onClose])
 
-  async function handlePick(url) {
+  async function handlePick(option) {
     await navigator.clipboard.writeText(prompt)
-    clearTimeout(toastTimer.current)
     clearTimeout(resetTimer.current)
-    setCopied(false)
+    setSelectedOption(option)
+    setCopied(true)
+  }
 
-    toastTimer.current = setTimeout(() => {
-      setCopied(true)
-      window.open(url, '_blank', 'noopener,noreferrer')
-    }, 1500)
-
+  function handleOpen() {
+    if (!selectedOption) return
+    window.open(selectedOption.url, '_blank', 'noopener,noreferrer')
     resetTimer.current = setTimeout(() => {
       setCopied(false)
+      setSelectedOption(null)
     }, 5000)
   }
 
@@ -80,6 +79,16 @@ function AIPicker({ book, question, onClose }) {
             <div className="ai-picker-toast-instruction">
               paste with <kbd>Cmd+V</kbd>
             </div>
+            {selectedOption && (
+              <button
+                type="button"
+                className="ai-picker-bot"
+                onClick={handleOpen}
+                style={{ marginTop: '0.35rem', textAlign: 'center' }}
+              >
+                open {selectedOption.name}
+              </button>
+            )}
           </div>
         ) : (
           <>
@@ -93,7 +102,7 @@ function AIPicker({ book, question, onClose }) {
                   key={option.name}
                   type="button"
                   className={`ai-picker-bot ai-picker-bot-${option.name.toLowerCase()}`}
-                  onClick={() => handlePick(option.url)}
+                  onClick={() => handlePick(option)}
                 >
                   {option.name}
                 </button>

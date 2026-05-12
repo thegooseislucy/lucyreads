@@ -158,7 +158,14 @@ const BOOKS = [
   },
 ]
 
-const CATEGORIES = ['trending', 'fiction', 'non-fiction', 'book club', 'controversy']
+const CATEGORIES = [
+  { id: 'trending', label: 'trending', listId: null },
+  { id: 'nyt100', label: 'NYT 100', listId: 83230 },
+  { id: 'mustread', label: 'Must Read', listId: 43791 },
+  { id: 'fantasy', label: 'Fantasy', listId: 108 },
+  { id: 'pulitzer', label: 'Pulitzer', listId: 97 },
+  { id: 'booktok', label: 'BookTok', listId: 20632 },
+]
 
 const searchBooks = async (query) => {
   const url = `/api/search-books?q=${encodeURIComponent(query)}`
@@ -167,6 +174,18 @@ const searchBooks = async (query) => {
 
   if (!res.ok) {
     throw new Error(data?.error ?? `Search API error: ${res.status}`)
+  }
+
+  return Array.isArray(data) ? data : []
+}
+
+const fetchHardcoverShelf = async (listId) => {
+  const url = `/api/hardcover-shelf?listId=${encodeURIComponent(listId)}`
+  const res = await fetch(url)
+  const data = await res.json().catch(() => null)
+
+  if (!res.ok) {
+    throw new Error(data?.error ?? `Hardcover API error: ${res.status}`)
   }
 
   return Array.isArray(data) ? data : []
@@ -235,17 +254,28 @@ function Book({ book, isSelected, onSelect, bookRef }) {
 
 function App() {
   const [selectedBook, setSelectedBook] = useState(null)
-  const [activeCategory, setActiveCategory] = useState('trending')
+  const [activeCategory, setActiveCategory] = useState(CATEGORIES[0])
   const [anchorX, setAnchorX] = useState(null)
   const [displayBooks, setDisplayBooks] = useState(BOOKS)
   const [isSearching, setIsSearching] = useState(false)
+  const [categoryLoading, setCategoryLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [searchError, setSearchError] = useState('')
   const [generationError, setGenerationError] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(false)
   const bookRefs = useRef({})
   const shelfScrollRef = useRef(null)
   const generationRequestRef = useRef(0)
+  const categoryRequestRef = useRef(0)
+
+  const resetSelection = useCallback(() => {
+    generationRequestRef.current += 1
+    setSelectedBook(null)
+    setGenerating(false)
+    setGenerationError('')
+  }, [])
 
   const handleSelect = useCallback((book) => {
     const isClosing = selectedBook?.id === book.id
@@ -289,20 +319,66 @@ function App() {
   }, [selectedBook?.id])
 
   const handleClosePanel = useCallback(() => {
-    generationRequestRef.current += 1
-    setSelectedBook(null)
-    setGenerating(false)
-    setGenerationError('')
+    resetSelection()
+  }, [resetSelection])
+
+  const updateScrollButtons = useCallback(() => {
+    const shelfScroll = shelfScrollRef.current
+    if (!shelfScroll) {
+      setCanScrollLeft(false)
+      setCanScrollRight(false)
+      return
+    }
+
+    const maxScrollLeft = shelfScroll.scrollWidth - shelfScroll.clientWidth
+    setCanScrollLeft(shelfScroll.scrollLeft > 0)
+    setCanScrollRight(shelfScroll.scrollLeft < maxScrollLeft - 1)
   }, [])
+
+  const handleShelfScroll = useCallback((direction) => {
+    shelfScrollRef.current?.scrollBy({
+      left: direction * 200,
+      behavior: 'smooth',
+    })
+  }, [])
+
+  const handleCategorySelect = useCallback(async (category) => {
+    const requestId = categoryRequestRef.current + 1
+    categoryRequestRef.current = requestId
+    setActiveCategory(category)
+    resetSelection()
+    setSearchError('')
+    setSearchQuery('')
+
+    if (category.listId === null) {
+      setCategoryLoading(false)
+      setDisplayBooks(BOOKS)
+      return
+    }
+
+    setCategoryLoading(true)
+    try {
+      const books = await fetchHardcoverShelf(category.listId)
+      if (categoryRequestRef.current !== requestId) return
+      setDisplayBooks(books.length > 0 ? books : BOOKS)
+    } catch (err) {
+      if (categoryRequestRef.current !== requestId) return
+      console.error('fetchHardcoverShelf failed:', err)
+      setDisplayBooks(BOOKS)
+    } finally {
+      if (categoryRequestRef.current === requestId) {
+        setCategoryLoading(false)
+      }
+    }
+  }, [resetSelection])
 
   const handleSearch = async () => {
     if (searchQuery.trim().length < 2) return
+    categoryRequestRef.current += 1
     setIsSearching(true)
-    setSelectedBook(null)
-    setGenerating(false)
-    generationRequestRef.current += 1
+    resetSelection()
+    setCategoryLoading(false)
     setSearchError('')
-    setGenerationError('')
     try {
       const results = await searchBooks(searchQuery)
       if (results.length > 0) {
@@ -341,14 +417,28 @@ function App() {
     const shelfScroll = shelfScrollRef.current
     if (!shelfScroll) return undefined
 
-    shelfScroll.addEventListener('scroll', updateAnchorX)
-    window.addEventListener('resize', updateAnchorX)
+    const handleScroll = () => {
+      updateAnchorX()
+      updateScrollButtons()
+    }
+    const handleResize = () => {
+      updateAnchorX()
+      updateScrollButtons()
+    }
+
+    updateScrollButtons()
+    shelfScroll.addEventListener('scroll', handleScroll)
+    window.addEventListener('resize', handleResize)
 
     return () => {
-      shelfScroll.removeEventListener('scroll', updateAnchorX)
-      window.removeEventListener('resize', updateAnchorX)
+      shelfScroll.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('resize', handleResize)
     }
-  }, [updateAnchorX])
+  }, [updateAnchorX, updateScrollButtons])
+
+  useEffect(() => {
+    updateScrollButtons()
+  }, [displayBooks, updateScrollButtons])
 
   return (
     <div style={{ minHeight: '100vh', padding: '0 0 60px', maxWidth: 900, margin: '0 auto' }}>
@@ -393,11 +483,11 @@ function App() {
               onClick={() => {
                 setSearchQuery('')
                 setDisplayBooks(BOOKS)
-                setSelectedBook(null)
-                setGenerating(false)
-                generationRequestRef.current += 1
+                setActiveCategory(CATEGORIES[0])
+                categoryRequestRef.current += 1
+                setCategoryLoading(false)
+                resetSelection()
                 setSearchError('')
-                setGenerationError('')
               }}
               style={{
                 background: 'none',
@@ -426,20 +516,20 @@ function App() {
       }}>
         {CATEGORIES.map(cat => (
           <button
-            key={cat}
-            onClick={() => setActiveCategory(cat)}
+            key={cat.id}
+            onClick={() => handleCategorySelect(cat)}
             style={{
-              background: activeCategory === cat ? '#9ac6c5' : 'none',
-              border: activeCategory === cat ? '1px solid #9ac6c5' : '1px solid var(--border)',
-              color: activeCategory === cat ? '#080b14' : 'var(--text-muted)',
+              background: activeCategory.id === cat.id ? '#9ac6c5' : 'none',
+              border: activeCategory.id === cat.id ? '1px solid #9ac6c5' : '1px solid var(--border)',
+              color: activeCategory.id === cat.id ? '#080b14' : 'var(--text-muted)',
               fontFamily: 'var(--font-mono)', fontSize: 9,
               padding: '3px 10px', borderRadius: 20, cursor: 'pointer',
               letterSpacing: '0.06em', textTransform: 'uppercase',
-              fontWeight: activeCategory === cat ? 700 : 400,
+              fontWeight: activeCategory.id === cat.id ? 700 : 400,
               transition: 'all 0.15s',
             }}
           >
-            {cat}
+            {cat.label}
           </button>
         ))}
       </div>
@@ -451,7 +541,7 @@ function App() {
           letterSpacing: '0.2em', textTransform: 'uppercase',
           marginBottom: 16, paddingLeft: 4,
         }}>
-          {isSearching ? 'searching open library...' : `shelf / ${activeCategory}`}
+          {isSearching ? 'searching open library...' : categoryLoading ? 'loading list...' : `shelf / ${activeCategory.label}`}
         </div>
 
         {searchError && (
@@ -467,6 +557,78 @@ function App() {
         )}
 
         <div style={{ position: 'relative', padding: '0 4px' }}>
+          {canScrollLeft && (
+            <button
+              type="button"
+              aria-label="Scroll shelf left"
+              onClick={() => handleShelfScroll(-1)}
+              style={{
+                position: 'absolute',
+                left: -34,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                zIndex: 3,
+                width: 26,
+                height: 26,
+                display: 'grid',
+                placeItems: 'center',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                background: 'var(--surface)',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+                transition: 'color 0.15s ease, border-color 0.15s ease',
+              }}
+              onMouseEnter={event => {
+                event.currentTarget.style.color = 'var(--teal)'
+                event.currentTarget.style.borderColor = 'var(--teal-border)'
+              }}
+              onMouseLeave={event => {
+                event.currentTarget.style.color = 'var(--text-secondary)'
+                event.currentTarget.style.borderColor = 'var(--border)'
+              }}
+            >
+              <svg width={14} height={14} viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M8.75 3.5 5.25 7l3.5 3.5" />
+              </svg>
+            </button>
+          )}
+          {canScrollRight && (
+            <button
+              type="button"
+              aria-label="Scroll shelf right"
+              onClick={() => handleShelfScroll(1)}
+              style={{
+                position: 'absolute',
+                right: -34,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                zIndex: 3,
+                width: 26,
+                height: 26,
+                display: 'grid',
+                placeItems: 'center',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                background: 'var(--surface)',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+                transition: 'color 0.15s ease, border-color 0.15s ease',
+              }}
+              onMouseEnter={event => {
+                event.currentTarget.style.color = 'var(--teal)'
+                event.currentTarget.style.borderColor = 'var(--teal-border)'
+              }}
+              onMouseLeave={event => {
+                event.currentTarget.style.color = 'var(--text-secondary)'
+                event.currentTarget.style.borderColor = 'var(--border)'
+              }}
+            >
+              <svg width={14} height={14} viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M5.25 3.5 8.75 7l-3.5 3.5" />
+              </svg>
+            </button>
+          )}
           <div
             ref={shelfScrollRef}
             className="shelf-scroll"
