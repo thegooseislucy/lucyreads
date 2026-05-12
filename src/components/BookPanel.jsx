@@ -9,7 +9,7 @@ const labelStyle = {
   textTransform: 'uppercase',
 }
 
-function BookPanel({ book, generating, onClose }) {
+function BookPanel({ book, generating, generationError, onClose }) {
   const [activeTab, setActiveTab] = useState('Cultural Brief')
 
   return (
@@ -169,6 +169,18 @@ function BookPanel({ book, generating, onClose }) {
                   ))}
                 </div>
               ))}
+            </div>
+          ) : generationError ? (
+            <div style={{
+              border: `1px solid ${book.band}`,
+              color: '#e2e8f8',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 10,
+              lineHeight: 1.5,
+              padding: '12px 14px',
+              textAlign: 'left',
+            }}>
+              {generationError}
             </div>
           ) : (
           <div style={{

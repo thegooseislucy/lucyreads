@@ -51,6 +51,7 @@ export default async function handler(request, response) {
   if (!apiKey) {
     return sendJson(response, 500, { error: 'Brief generation is not configured' })
   }
+  const model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6'
 
   const body = parseBody(request.body)
   const title = normalizeBookInput(body?.title)
@@ -69,7 +70,7 @@ export default async function handler(request, response) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model,
         max_tokens: 1000,
         system: `You are a cultural context engine for a book companion app called LucyReads. Return ONLY valid JSON with no markdown, no explanation, no preamble. Schema: { "brief": string, "controversy": string, "bookClub": [string, string, string], "prompts": [string, string, string] }. brief: 1-2 sentences of cultural context — what the book is and why it matters right now. controversy: 1 sentence on the central debate or most divisive element. bookClub: 3 sharp discussion questions a real book club would actually argue about. prompts: 3 short questions a reader would genuinely want to ask an AI about this book.`,
         messages: [
@@ -79,6 +80,8 @@ export default async function handler(request, response) {
     })
 
     if (!anthropicResponse.ok) {
+      const errorText = await anthropicResponse.text().catch(() => '')
+      console.error('Anthropic API failed:', anthropicResponse.status, errorText)
       return sendJson(response, anthropicResponse.status, { error: 'Brief generation failed' })
     }
 

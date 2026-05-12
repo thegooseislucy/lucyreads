@@ -160,51 +160,16 @@ const BOOKS = [
 
 const CATEGORIES = ['trending', 'fiction', 'non-fiction', 'book club', 'controversy']
 
-const SPINE_COLORS = [
-  { base: '#1c0f2e', band: '#7c3aed', text: '#ddd6fe' },
-  { base: '#071818', band: '#9ac6c5', text: '#e0f2f1' },
-  { base: '#1a0808', band: '#b91c1c', text: '#fecaca' },
-  { base: '#060e1e', band: '#2563eb', text: '#bfdbfe' },
-  { base: '#140e02', band: '#b45309', text: '#fde68a' },
-  { base: '#130800', band: '#c2410c', text: '#fed7aa' },
-  { base: '#06101c', band: '#1d4ed8', text: '#dbeafe' },
-  { base: '#040f0e', band: '#0d9488', text: '#ccfbf1' },
-]
-
-const SPINE_SIZES = [
-  { w: 29, h: 186 },
-  { w: 25, h: 174 },
-  { w: 33, h: 194 },
-  { w: 35, h: 200 },
-  { w: 31, h: 190 },
-  { w: 27, h: 177 },
-  { w: 29, h: 187 },
-  { w: 33, h: 192 },
-]
-
 const searchBooks = async (query) => {
-  const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=12&fields=key,title,author_name,first_publish_year,cover_i,subject`
+  const url = `/api/search-books?q=${encodeURIComponent(query)}`
   const res = await fetch(url)
-  const data = await res.json()
-  return data.docs
-    .filter(doc => doc.cover_i)
-    .map((doc, index) => ({
-      id: doc.key,
-      title: doc.title,
-      fullTitle: doc.title,
-      author: doc.author_name?.[0] ?? 'Unknown',
-      year: doc.first_publish_year ?? '',
-      ...SPINE_COLORS[index % SPINE_COLORS.length],
-      heat: Math.floor(Math.random() * 30) + 65,
-      sentiment: '',
-      coverUrl: `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`,
-      brief: '',
-      controversy: '',
-      bookClub: [],
-      chapters: [],
-      prompts: [],
-      ...SPINE_SIZES[index % SPINE_SIZES.length],
-    }))
+  const data = await res.json().catch(() => null)
+
+  if (!res.ok) {
+    throw new Error(data?.error ?? `Search API error: ${res.status}`)
+  }
+
+  return Array.isArray(data) ? data : []
 }
 
 function Book({ book, isSelected, onSelect, bookRef }) {
@@ -275,21 +240,81 @@ function App() {
   const [displayBooks, setDisplayBooks] = useState(BOOKS)
   const [isSearching, setIsSearching] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [searchError, setSearchError] = useState('')
+  const [generationError, setGenerationError] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const bookRefs = useRef({})
   const shelfScrollRef = useRef(null)
+  const generationRequestRef = useRef(0)
 
   const handleSelect = useCallback((book) => {
-    setSelectedBook(prev => prev?.id === book.id ? null : book)
+    const isClosing = selectedBook?.id === book.id
+    generationRequestRef.current += 1
+    setGenerationError('')
+
+    if (isClosing) {
+      setSelectedBook(null)
+      setGenerating(false)
+      return
+    }
+
+    setSelectedBook(book)
+
+    if (book.brief) {
+      setGenerating(false)
+      return
+    }
+
+    const requestId = generationRequestRef.current
+    setGenerating(true)
+
+    generateBrief({ title: book.title, author: book.author })
+      .then(data => {
+        if (generationRequestRef.current !== requestId) return
+        const updated = { ...book, ...data }
+        setSelectedBook(prev => prev?.id === updated.id ? updated : prev)
+        setDisplayBooks(prev => prev.map(item => item.id === updated.id ? updated : item))
+      })
+      .catch(err => {
+        console.error('generateBrief failed:', err)
+        if (generationRequestRef.current === requestId) {
+          setGenerationError('AI brief generation failed. Try selecting the book again in a moment.')
+        }
+      })
+      .finally(() => {
+        if (generationRequestRef.current === requestId) {
+          setGenerating(false)
+        }
+      })
+  }, [selectedBook?.id])
+
+  const handleClosePanel = useCallback(() => {
+    generationRequestRef.current += 1
+    setSelectedBook(null)
+    setGenerating(false)
+    setGenerationError('')
   }, [])
 
   const handleSearch = async () => {
     if (searchQuery.trim().length < 2) return
     setIsSearching(true)
     setSelectedBook(null)
+    setGenerating(false)
+    generationRequestRef.current += 1
+    setSearchError('')
+    setGenerationError('')
     try {
       const results = await searchBooks(searchQuery)
-      setDisplayBooks(results.length > 0 ? results : BOOKS)
+      if (results.length > 0) {
+        setDisplayBooks(results)
+      } else {
+        setDisplayBooks(BOOKS)
+        setSearchError('Book search is having trouble. Try a title, author, or description.')
+      }
+    } catch (err) {
+      console.error('searchBooks failed:', err)
+      setDisplayBooks(BOOKS)
+      setSearchError('Book search is having trouble. Try a title, author, or description.')
     } finally {
       setIsSearching(false)
     }
@@ -324,32 +349,6 @@ function App() {
       window.removeEventListener('resize', updateAnchorX)
     }
   }, [updateAnchorX])
-
-  useEffect(() => {
-    if (!selectedBook || selectedBook.brief) {
-      setGenerating(false)
-      return
-    }
-
-    let cancelled = false
-    setGenerating(true)
-
-    generateBrief({ title: selectedBook.title, author: selectedBook.author })
-      .then(data => {
-        if (cancelled) return
-        const updated = { ...selectedBook, ...data }
-        setSelectedBook(updated)
-        setDisplayBooks(prev => prev.map(b => b.id === updated.id ? updated : b))
-      })
-      .catch(err => {
-        console.error('generateBrief failed:', err)
-      })
-      .finally(() => {
-        if (!cancelled) setGenerating(false)
-      })
-
-    return () => { cancelled = true }
-  }, [selectedBook?.id])
 
   return (
     <div style={{ minHeight: '100vh', padding: '0 0 60px', maxWidth: 900, margin: '0 auto' }}>
@@ -395,6 +394,10 @@ function App() {
                 setSearchQuery('')
                 setDisplayBooks(BOOKS)
                 setSelectedBook(null)
+                setGenerating(false)
+                generationRequestRef.current += 1
+                setSearchError('')
+                setGenerationError('')
               }}
               style={{
                 background: 'none',
@@ -451,6 +454,18 @@ function App() {
           {isSearching ? 'searching open library...' : `shelf / ${activeCategory}`}
         </div>
 
+        {searchError && (
+          <div style={{
+            margin: '-8px 0 14px 4px',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 9,
+            color: '#9ac6c5',
+            letterSpacing: '0.04em',
+          }}>
+            {searchError}
+          </div>
+        )}
+
         <div style={{ position: 'relative', padding: '0 4px' }}>
           <div
             ref={shelfScrollRef}
@@ -501,7 +516,12 @@ function App() {
         </div>
 
         {selectedBook ? (
-          <BookPanel book={selectedBook} generating={generating} onClose={() => setSelectedBook(null)} />
+          <BookPanel
+            book={selectedBook}
+            generating={generating}
+            generationError={generationError}
+            onClose={handleClosePanel}
+          />
         ) : (
           <div style={{
             textAlign: 'center', padding: '24px 0',
