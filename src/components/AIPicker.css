@@ -1,0 +1,148 @@
+.ai-picker-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: rgba(3, 5, 12, 0.82);
+  backdrop-filter: blur(6px);
+  font-family: var(--font-mono);
+}
+
+.ai-picker-card {
+  width: 260px;
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+.ai-picker-title {
+  margin-bottom: 0.75rem;
+  color: var(--text-primary);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+}
+
+.ai-picker-preview {
+  max-height: 90px;
+  margin-bottom: 1rem;
+  padding: 8px 10px;
+  overflow-y: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
+}
+
+.ai-picker-options {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.ai-picker-bot {
+  width: 100%;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.ai-picker-bot-claude {
+  border-left: 3px solid var(--teal);
+}
+
+.ai-picker-bot-chatgpt {
+  border-left: 3px solid #4ade80;
+}
+
+.ai-picker-bot-claude:hover,
+.ai-picker-bot-claude:focus-visible {
+  border-color: var(--teal-border);
+  border-left-color: var(--teal);
+  background: var(--teal-dim);
+  color: var(--teal);
+  outline: none;
+}
+
+.ai-picker-bot-chatgpt:hover,
+.ai-picker-bot-chatgpt:focus-visible {
+  border-color: rgba(74,222,128,0.45);
+  border-left-color: #4ade80;
+  background: rgba(74,222,128,0.08);
+  color: #4ade80;
+  outline: none;
+}
+
+.ai-picker-cancel {
+  width: 100%;
+  margin-top: 1rem;
+  padding: 0.45rem;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  cursor: pointer;
+}
+
+.ai-picker-cancel:hover,
+.ai-picker-cancel:focus-visible {
+  color: var(--text-secondary);
+  outline: none;
+}
+
+.ai-picker-toast {
+  display: grid;
+  justify-items: center;
+  gap: 0.45rem;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.ai-picker-goose {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 0.25rem;
+  fill: none;
+  stroke: var(--teal);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.ai-picker-toast-title,
+.ai-picker-toast-instruction {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+}
+
+.ai-picker-toast kbd {
+  padding: 0.12rem 0.32rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+}

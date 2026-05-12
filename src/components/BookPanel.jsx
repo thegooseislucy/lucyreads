@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import AIPicker from './AIPicker.jsx'
 
 const TABS = ['Cultural Brief', 'By Chapter', 'Ask AI']
 
@@ -11,19 +12,22 @@ const labelStyle = {
 
 function BookPanel({ book, generating, generationError, onClose }) {
   const [activeTab, setActiveTab] = useState('Cultural Brief')
+  const [pickerQuestion, setPickerQuestion] = useState(null)
+  const [customInput, setCustomInput] = useState('')
 
   return (
-    <section
-      style={{
-        marginTop: 24,
-        background: 'var(--surface)',
-        border: '1px solid var(--border)',
-        borderTop: `2px solid ${book.band}`,
-        borderRadius: 2,
-        boxShadow: `0 -1px 12px ${book.band}55`,
-        animation: 'book-panel-in 0.18s ease both',
-      }}
-    >
+    <>
+      <section
+        style={{
+          marginTop: 24,
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderTop: `2px solid ${book.band}`,
+          borderRadius: 2,
+          boxShadow: `0 -1px 12px ${book.band}55`,
+          animation: 'book-panel-in 0.18s ease both',
+        }}
+      >
       <style>
         {`
           @keyframes book-panel-in {
@@ -288,6 +292,7 @@ function BookPanel({ book, generating, generationError, onClose }) {
               <button
                 key={prompt}
                 type="button"
+                onClick={() => setPickerQuestion(prompt)}
                 style={{
                   width: '100%',
                   textAlign: 'left',
@@ -323,6 +328,8 @@ function BookPanel({ book, generating, generationError, onClose }) {
             }}>
               <input
                 placeholder="or ask something specific..."
+                value={customInput}
+                onChange={(event) => setCustomInput(event.target.value)}
                 style={{
                   border: '1px solid var(--border)',
                   background: 'transparent',
@@ -336,6 +343,12 @@ function BookPanel({ book, generating, generationError, onClose }) {
               />
               <button
                 type="button"
+                onClick={() => {
+                  const question = customInput.trim()
+                  if (question) {
+                    setPickerQuestion(question)
+                  }
+                }}
                 style={{
                   border: `1px solid ${book.band}`,
                   background: book.band,
@@ -354,7 +367,16 @@ function BookPanel({ book, generating, generationError, onClose }) {
           </div>
         )}
       </div>
-    </section>
+      </section>
+
+      {pickerQuestion && (
+        <AIPicker
+          book={book}
+          question={pickerQuestion}
+          onClose={() => setPickerQuestion(null)}
+        />
+      )}
+    </>
   )
 }
 
