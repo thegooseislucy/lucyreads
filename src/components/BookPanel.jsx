@@ -9,7 +9,7 @@ const labelStyle = {
   textTransform: 'uppercase',
 }
 
-function BookPanel({ book, onClose }) {
+function BookPanel({ book, generating, onClose }) {
   const [activeTab, setActiveTab] = useState('Cultural Brief')
 
   return (
@@ -148,6 +148,29 @@ function BookPanel({ book, onClose }) {
 
       <div style={{ padding: 18 }}>
         {activeTab === 'Cultural Brief' && (
+          generating ? (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+              <style>{`
+                @keyframes pulse-bar {
+                  0%, 100% { opacity: 0.15; }
+                  50% { opacity: 0.35; }
+                }
+              `}</style>
+              {[0, 1].map(col => (
+                <div key={col} style={{ display: 'grid', gap: 10 }}>
+                  {[80, 100, 60, 90, 70].map((w, i) => (
+                    <div key={i} style={{
+                      height: 9,
+                      width: `${w}%`,
+                      background: book.band,
+                      borderRadius: 2,
+                      animation: `pulse-bar 1.6s ease-in-out ${i * 0.12}s infinite`,
+                    }} />
+                  ))}
+                </div>
+              ))}
+            </div>
+          ) : (
           <div style={{
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
@@ -203,6 +226,7 @@ function BookPanel({ book, onClose }) {
               </div>
             </div>
           </div>
+          )
         )}
 
         {activeTab === 'By Chapter' && (

@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { generateBrief } from './lib/generateBrief.js'
 import BookPanel from './components/BookPanel.jsx'
 import './App.css'
 
@@ -159,6 +160,53 @@ const BOOKS = [
 
 const CATEGORIES = ['trending', 'fiction', 'non-fiction', 'book club', 'controversy']
 
+const SPINE_COLORS = [
+  { base: '#1c0f2e', band: '#7c3aed', text: '#ddd6fe' },
+  { base: '#071818', band: '#9ac6c5', text: '#e0f2f1' },
+  { base: '#1a0808', band: '#b91c1c', text: '#fecaca' },
+  { base: '#060e1e', band: '#2563eb', text: '#bfdbfe' },
+  { base: '#140e02', band: '#b45309', text: '#fde68a' },
+  { base: '#130800', band: '#c2410c', text: '#fed7aa' },
+  { base: '#06101c', band: '#1d4ed8', text: '#dbeafe' },
+  { base: '#040f0e', band: '#0d9488', text: '#ccfbf1' },
+]
+
+const SPINE_SIZES = [
+  { w: 29, h: 186 },
+  { w: 25, h: 174 },
+  { w: 33, h: 194 },
+  { w: 35, h: 200 },
+  { w: 31, h: 190 },
+  { w: 27, h: 177 },
+  { w: 29, h: 187 },
+  { w: 33, h: 192 },
+]
+
+const searchBooks = async (query) => {
+  const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=12&fields=key,title,author_name,first_publish_year,cover_i,subject`
+  const res = await fetch(url)
+  const data = await res.json()
+  return data.docs
+    .filter(doc => doc.cover_i)
+    .map((doc, index) => ({
+      id: doc.key,
+      title: doc.title,
+      fullTitle: doc.title,
+      author: doc.author_name?.[0] ?? 'Unknown',
+      year: doc.first_publish_year ?? '',
+      ...SPINE_COLORS[index % SPINE_COLORS.length],
+      heat: Math.floor(Math.random() * 30) + 65,
+      sentiment: '',
+      coverUrl: `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`,
+      brief: '',
+      controversy: '',
+      bookClub: [],
+      chapters: [],
+      prompts: [],
+      ...SPINE_SIZES[index % SPINE_SIZES.length],
+    }))
+}
+
 function Book({ book, isSelected, onSelect, bookRef }) {
   const [hovered, setHovered] = useState(false)
   const active = hovered || isSelected
@@ -224,12 +272,28 @@ function App() {
   const [selectedBook, setSelectedBook] = useState(null)
   const [activeCategory, setActiveCategory] = useState('trending')
   const [anchorX, setAnchorX] = useState(null)
+  const [displayBooks, setDisplayBooks] = useState(BOOKS)
+  const [isSearching, setIsSearching] = useState(false)
+  const [generating, setGenerating] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const bookRefs = useRef({})
   const shelfScrollRef = useRef(null)
 
   const handleSelect = useCallback((book) => {
     setSelectedBook(prev => prev?.id === book.id ? null : book)
   }, [])
+
+  const handleSearch = async () => {
+    if (searchQuery.trim().length < 2) return
+    setIsSearching(true)
+    setSelectedBook(null)
+    try {
+      const results = await searchBooks(searchQuery)
+      setDisplayBooks(results.length > 0 ? results : BOOKS)
+    } finally {
+      setIsSearching(false)
+    }
+  }
 
   const updateAnchorX = useCallback(() => {
     if (!selectedBook || !shelfScrollRef.current) {
@@ -261,6 +325,32 @@ function App() {
     }
   }, [updateAnchorX])
 
+  useEffect(() => {
+    if (!selectedBook || selectedBook.brief) {
+      setGenerating(false)
+      return
+    }
+
+    let cancelled = false
+    setGenerating(true)
+
+    generateBrief({ title: selectedBook.title, author: selectedBook.author })
+      .then(data => {
+        if (cancelled) return
+        const updated = { ...selectedBook, ...data }
+        setSelectedBook(updated)
+        setDisplayBooks(prev => prev.map(b => b.id === updated.id ? updated : b))
+      })
+      .catch(err => {
+        console.error('generateBrief failed:', err)
+      })
+      .finally(() => {
+        if (!cancelled) setGenerating(false)
+      })
+
+    return () => { cancelled = true }
+  }, [selectedBook?.id])
+
   return (
     <div style={{ minHeight: '100vh', padding: '0 0 60px', maxWidth: 900, margin: '0 auto' }}>
 
@@ -290,16 +380,39 @@ function App() {
           </svg>
           <input
             placeholder="search a book or author..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSearch()}
             style={{
               background: 'none', border: 'none', outline: 'none',
               color: 'var(--text-primary)', fontFamily: 'var(--font-mono)',
               fontSize: 11, width: '100%',
             }}
           />
+          {searchQuery && (
+            <button
+              onClick={() => {
+                setSearchQuery('')
+                setDisplayBooks(BOOKS)
+                setSelectedBook(null)
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 11,
+                padding: '0 2px',
+              }}
+            >
+              ✕
+            </button>
+          )}
         </div>
 
         <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.06em' }}>
-          {BOOKS.length} on shelf
+          {displayBooks.length} on shelf
         </div>
       </div>
 
@@ -335,7 +448,7 @@ function App() {
           letterSpacing: '0.2em', textTransform: 'uppercase',
           marginBottom: 16, paddingLeft: 4,
         }}>
-          shelf / {activeCategory}
+          {isSearching ? 'searching open library...' : `shelf / ${activeCategory}`}
         </div>
 
         <div style={{ position: 'relative', padding: '0 4px' }}>
@@ -345,7 +458,7 @@ function App() {
             style={{ overflowX: 'auto', paddingBottom: 0 }}
           >
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, paddingTop: 28, minWidth: 'max-content' }}>
-              {BOOKS.map(book => (
+              {displayBooks.map(book => (
                 <Book
                   key={book.id}
                   book={book}
@@ -388,7 +501,7 @@ function App() {
         </div>
 
         {selectedBook ? (
-          <BookPanel book={selectedBook} onClose={() => setSelectedBook(null)} />
+          <BookPanel book={selectedBook} generating={generating} onClose={() => setSelectedBook(null)} />
         ) : (
           <div style={{
             textAlign: 'center', padding: '24px 0',
